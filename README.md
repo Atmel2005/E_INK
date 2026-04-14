@@ -1,4 +1,4 @@
-## Deutsch (Übersetzung)
+## Deutsch
 
 # E_INK Library - E-Paper Display Treiber
 
@@ -109,7 +109,7 @@ void loop() {}
 
 ---
 
-## Українською (переклад)
+## Українською
 
 # E_INK Library - Драйвер e-paper дисплеїв
 
@@ -220,7 +220,7 @@ void loop() {}
 
 ---
 
-## English (translation)
+## English 
 
 # E_INK Library - E-Paper Display Driver
 
@@ -331,7 +331,7 @@ void loop() {}
 
 ---
 
-## Русский (оригинал)
+## Русский
 
 # E_INK Library - Драйвер e-paper дисплеев
 
