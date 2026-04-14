@@ -1,0 +1,18 @@
+# IDE
+.vscode/
+.idea/
+*.bak
+*.tmp
+
+# Build artifacts
+*.o
+*.elf
+*.hex
+*.bin
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug
+*.log

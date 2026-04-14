@@ -1,0 +1,75 @@
+#######################################
+# Syntax Coloring Map For E_INK
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+EPD_Base	KEYWORD1
+EPD_SSD1680	KEYWORD1
+EPD_SSD1681	KEYWORD1
+EPD_SSD1608	KEYWORD1
+EPD_UC8151	KEYWORD1
+EPD_IL3829	KEYWORD1
+EPDConfig	KEYWORD1
+EPDController	KEYWORD1
+EPDVariant	KEYWORD1
+EPDColor	KEYWORD1
+RefreshProfile	KEYWORD1
+DisplayMode	KEYWORD1
+EPD_IO	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+begin	KEYWORD2
+end	KEYWORD2
+sleep	KEYWORD2
+isBusy	KEYWORD2
+setRotation	KEYWORD2
+drawPixel	KEYWORD2
+fillScreen	KEYWORD2
+flushFull	KEYWORD2
+flushRect	KEYWORD2
+framebuffer	KEYWORD2
+framebufferSize	KEYWORD2
+framebufferAccent	KEYWORD2
+framebufferAccentSize	KEYWORD2
+setRefreshProfile	KEYWORD2
+setDisplayMode	KEYWORD2
+width	KEYWORD2
+height	KEYWORD2
+setSterChar	KEYWORD2
+getSterChar	KEYWORD2
+hwReset	KEYWORD2
+waitBusy	KEYWORD2
+sendCommand	KEYWORD2
+sendData	KEYWORD2
+sendDataBlock	KEYWORD2
+updatePart	KEYWORD2
+setUpdateControlFlags	KEYWORD2
+reloadTempAndLUT	KEYWORD2
+reloadLUTOnly	KEYWORD2
+setDisplayUpdateControl1	KEYWORD2
+createEPD	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+SSD1680	LITERAL1
+SSD1681	LITERAL1
+SSD1608	LITERAL1
+UC8151	LITERAL1
+IL3829	LITERAL1
+BW	LITERAL1
+BW_R	LITERAL1
+BW_Y	LITERAL1
+BW_RY	LITERAL1
+White	LITERAL1
+Black	LITERAL1
+Red	LITERAL1
+Yellow	LITERAL1
+Full	LITERAL1
+Partial	LITERAL1
+Mode1	LITERAL1
+Mode2	LITERAL1
