@@ -2,9 +2,9 @@
 #include <EPD_Base.h>
 
 // Uncomment the controller you want to use
- //#define EPD_CONTROLLER EPDController::SSD1681
- #define EPD_CONTROLLER EPDController::SSD1680
-// #define EPD_CONTROLLER EPDController::SSD1608
+ #define EPD_CONTROLLER EPDController::SSD1681
+ //#define EPD_CONTROLLER EPDController::SSD1680
+//#define EPD_CONTROLLER EPDController::SSD1608
 //#define EPD_CONTROLLER EPDController::UC8151
 // #define EPD_CONTROLLER EPDController::IL3829  // Not implemented yet
 
@@ -19,12 +19,12 @@
   const int PIN_BUSY = 11;
 #elif defined(ARDUINO_ARCH_ESP32)
   // ESP32 example pins (adjust to your board)
-  const int PIN_MOSI = 15; // 23
-  const int PIN_SCLK = 18;
-  const int PIN_CS   = 5;
-  const int PIN_DC   = 16;
-  const int PIN_RST  = 17;
-  const int PIN_BUSY = 4;
+  const int PIN_MOSI = 6; // 23 15
+  const int PIN_SCLK = 4; // 18
+  const int PIN_CS   = 7; // 5
+  const int PIN_DC   = 5; // 16
+  const int PIN_RST  = 2; // 17
+  const int PIN_BUSY = 3; // 4
 #else
   // UNO/AVR example SW SPI pins (adjust to wiring)
   const int PIN_MOSI = 11;
@@ -166,8 +166,8 @@ void setup() {
   Serial.println(F("\nEPD Intro Example"));
   
   // Configure the display
-  cfg.width = 122;
-  cfg.height = 250;
+  cfg.width = 200;
+  cfg.height = 200;
   cfg.variant = EPDVariant::BW_R; // Black/White display
   cfg.controller = EPD_CONTROLLER;
  

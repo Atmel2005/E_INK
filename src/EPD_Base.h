@@ -49,7 +49,7 @@ struct EPDConfig {
   uint8_t rotation = 0;
 
   // SPI pins (required for SW SPI; for HW SPI only cs/dc/rst/busy are mandatory)
-  int8_t mosi = -1;
+  int8_t mosi = -1;  // SDA - bidirectional data (write and read)
   int8_t sclk = -1;
   int8_t cs   = -1;
   int8_t dc   = -1;
@@ -86,6 +86,7 @@ public:
   // Display update functions
   virtual void flushFull() = 0;
   virtual void flushRect(int16_t x, int16_t y, int16_t w, int16_t h) = 0;
+  virtual void syncToRAM() {}  // Write framebuffer to RAM without triggering update (optional)
   
   // Framebuffer access
   virtual uint8_t* framebuffer() = 0;
@@ -106,6 +107,47 @@ public:
   // Helper functions
   virtual uint16_t width() const = 0;
   virtual uint16_t height() const = 0;
+
+  // Temperature sensor functions
+  virtual int16_t readTemperature() { return 0; }
+  virtual void setTemperature(int16_t temp) { (void)temp; }
+  virtual int8_t getTemperatureRange(int16_t temp) { (void)temp; return 2; }
+  virtual void selectTemperatureSensor(bool internal) { (void)internal; }
+  virtual void writeExternalTempSensor(uint8_t cmd) { (void)cmd; }
+  
+  // Auto-temperature LUT
+  virtual void enableAutoTempLUT(bool enable) { (void)enable; }
+  virtual bool isAutoTempLUTEnabled() const { return false; }
+  typedef void (*TempCallback)(int16_t);
+  virtual void setTempCallback(TempCallback cb) { (void)cb; }
+  
+  // Voltage control
+  virtual void setGateVoltage(uint8_t level) { (void)level; }
+  virtual void setSourceVoltage(uint8_t vsh1, uint8_t vsh2, uint8_t vsl) { (void)vsh1; (void)vsh2; (void)vsl; }
+  virtual void setVCOM(uint8_t level) { (void)level; }
+  virtual uint8_t readVCOM() { return 0; }
+  
+  // Hardware control
+  virtual void setBoosterSoftStart(uint8_t a, uint8_t b, uint8_t c) { (void)a; (void)b; (void)c; }
+  virtual void setGateLineWidth(uint8_t width) { (void)width; }
+  virtual void setPWMFrequency(uint8_t freq) { (void)freq; }
+  virtual void setRegulatorControl(uint8_t ctrl) { (void)ctrl; }
+  virtual void setBorderWaveform(uint8_t setting) { (void)setting; }
+  virtual void setLUTEndOption(uint8_t opt) { (void)opt; }
+  virtual void setVCOMSenseDuration(uint8_t dur) { (void)dur; }
+  virtual void setRAMContentOption(uint8_t opt) { (void)opt; }
+  
+  // RAM operations
+  virtual void readRAM(uint16_t x, uint16_t y, uint8_t* buf, size_t len) { (void)x; (void)y; (void)buf; (void)len; }
+  virtual uint8_t readChipID() { return 0; }
+  
+  // HV and VCOM sensing
+  virtual bool checkHVReady() { return true; }
+  virtual uint8_t performVCOMSense() { return 0; }
+  
+  // Deep sleep modes
+  virtual void enterDeepSleepMode1() {}
+  virtual void enterDeepSleepMode2() {}
 
 protected:
   // Default storage for text spacing for all drivers

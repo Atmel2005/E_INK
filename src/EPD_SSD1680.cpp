@@ -131,6 +131,20 @@ void EPD_SSD1680::flushFull() {
   issueUpdate(RefreshProfile::Full);
 }
 
+void EPD_SSD1680::syncToRAM() {
+  const size_t bytes_per_row = (size_t)((_phys_w + 7) >> 3);
+  _setPartialRamArea(0, 0, _phys_w, _phys_h);
+  sendCommand(0x24);
+  for (uint16_t y = 0; y < _phys_h; ++y) {
+    const uint8_t* row = _fb_black + ((size_t)y * bytes_per_row);
+    sendDataBlock(row, bytes_per_row);
+  }
+  sendCommand(0x22);
+  sendData(0xCF);  // Partial update mode
+  sendCommand(0x20);
+  waitBusy();
+}
+
 void EPD_SSD1680::flushRect(int16_t x, int16_t y, int16_t w, int16_t h) {
   if (!_fb_black || w <= 0 || h <= 0) return;
   _Init_Part();
@@ -347,6 +361,208 @@ void EPD_SSD1680::mapRectToPhys(int16_t x, int16_t y, int16_t w, int16_t h,
   if (ys < 0) ys = 0;
   if (xe >= _cfg.width)  xe = _cfg.width  - 1;
   if (ye >= _cfg.height) ye = _cfg.height - 1;
+}
+
+// ========== NEW: Full SSD1680 Command Implementation ==========
+
+// --- Priority 1: Voltage Control ---
+
+void EPD_SSD1680::setGateVoltage(uint8_t vgh_level) {
+    sendCommand(0x03);
+    sendData(vgh_level & 0x1F);
+}
+
+void EPD_SSD1680::setSourceVoltage(uint8_t vsh1, uint8_t vsh2, uint8_t vsl) {
+    sendCommand(0x04);
+    sendData(vsh1);
+    sendData(vsh2);
+    sendData(vsl);
+}
+
+void EPD_SSD1680::setVCOM(uint8_t vcom_level) {
+    sendCommand(0x2C);
+    sendData(vcom_level);
+}
+
+int16_t EPD_SSD1680::readTemperature() {
+    uint8_t buf[2];
+    _io.sendCommandReadBlock(0x35, buf, 2);
+    int16_t temp = (int16_t)((buf[1] << 8) | buf[0]);
+    return temp;
+}
+
+void EPD_SSD1680::setTemperature(int16_t temp) {
+    sendCommand(0x37);
+    sendData((uint8_t)(temp & 0xFF));
+    sendData((uint8_t)((temp >> 8) & 0xFF));
+}
+
+// --- Priority 2: Advanced Waveform ---
+
+void EPD_SSD1680::setBoosterSoftStart(uint8_t phase_a, uint8_t phase_b, uint8_t phase_c) {
+    sendCommand(0x0C);
+    sendData(phase_a);
+    sendData(phase_b);
+    sendData(phase_c);
+}
+
+void EPD_SSD1680::setGateLineWidth(uint8_t width) {
+    sendCommand(0x15);
+    sendData(width);
+}
+
+void EPD_SSD1680::setRegulatorControl(uint8_t ctrl) {
+    sendCommand(0x18);
+    sendData(ctrl);
+}
+
+void EPD_SSD1680::readRAM(uint16_t x, uint16_t y, uint8_t* buffer, size_t len) {
+    if (!buffer || len == 0) return;
+    sendCommand(0x4E);
+    sendData((uint8_t)((x >> 3) & 0xFF));
+    sendCommand(0x4F);
+    sendData((uint8_t)(y & 0xFF));
+    sendData((uint8_t)((y >> 8) & 0xFF));
+    sendCommand(0x27);
+    _io.readDataBlock(buffer, len);
+}
+
+void EPD_SSD1680::setBorderWaveform(uint8_t setting) {
+    sendCommand(0x3C);
+    sendData(setting & 0x03);
+}
+
+void EPD_SSD1680::setLUTEndOption(uint8_t option) {
+    sendCommand(0x3F);
+    sendData(option);
+}
+
+// --- Priority 3: Debug/OTP ---
+
+void EPD_SSD1680::setPWMFrequency(uint8_t freq) {
+    sendCommand(0x14);
+    sendData(freq);
+}
+
+uint8_t EPD_SSD1680::readChipID() {
+    return _io.sendCommandRead(0x1B);
+}
+
+uint8_t EPD_SSD1680::readVCOM() {
+    return _io.sendCommandRead(0x2D);
+}
+
+void EPD_SSD1680::writeOTP(uint8_t addr, uint8_t data) {
+    sendCommand(0x2E);
+    sendData(addr);
+    sendData(data);
+}
+
+uint8_t EPD_SSD1680::readOTP(uint8_t addr) {
+    sendCommand(0x2F);
+    sendData(addr);
+    return _io.readData();
+}
+
+// --- Additional Commands ---
+
+void EPD_SSD1680::setVCOMSenseDuration(uint8_t duration_sec) {
+    sendCommand(0x29);
+    sendData((duration_sec - 1) & 0x0F);
+}
+
+void EPD_SSD1680::setRAMContentOption(uint8_t option) {
+    sendCommand(0x41);
+    sendData(option);
+}
+
+bool EPD_SSD1680::checkHVReady() {
+    sendCommand(0x22);
+    sendData(0xC0);
+    sendCommand(0x20);
+    waitBusy();
+    sendCommand(0x22);
+    sendData(0x00);
+    sendCommand(0x20);
+    waitBusy();
+    sendCommand(0x2F);
+    sendData(0x00);
+    uint8_t status = _io.readData();
+    return (status & 0x20) == 0;
+}
+
+uint8_t EPD_SSD1680::performVCOMSense() {
+    sendCommand(0x22);
+    sendData(0xC0);
+    sendCommand(0x20);
+    waitBusy();
+    sendCommand(0x22);
+    sendData(0x01);
+    sendCommand(0x20);
+    waitBusy();
+    return _io.sendCommandRead(0x2D);
+}
+
+void EPD_SSD1680::selectTemperatureSensor(bool internal) {
+    sendCommand(0x18);
+    sendData(internal ? 0x80 : 0x48);
+}
+
+void EPD_SSD1680::writeExternalTempSensor(uint8_t cmd) {
+    sendCommand(0x22);
+    sendData(0x48);
+    sendCommand(0x20);
+    waitBusy();
+    sendCommand(0x18);
+    sendData(cmd);
+}
+
+void EPD_SSD1680::enterDeepSleepMode1() {
+    sendCommand(0x10);
+    sendData(0x01);
+    waitBusy();
+}
+
+void EPD_SSD1680::enterDeepSleepMode2() {
+    sendCommand(0x10);
+    sendData(0x11);
+    waitBusy();
+}
+
+// --- Temperature-based LUT Auto-Selection ---
+
+static const int16_t TEMP_RANGES_SSD1680[] = {0, 1000, 2500, 4000, 5000};
+
+int8_t EPD_SSD1680::getTemperatureRange(int16_t temp) {
+    if (temp < TEMP_RANGES_SSD1680[0]) return 0;
+    if (temp < TEMP_RANGES_SSD1680[1]) return 1;
+    if (temp < TEMP_RANGES_SSD1680[2]) return 2;
+    if (temp < TEMP_RANGES_SSD1680[3]) return 3;
+    if (temp < TEMP_RANGES_SSD1680[4]) return 4;
+    return 5;
+}
+
+void EPD_SSD1680::enableAutoTempLUT(bool enable) {
+    _auto_temp_lut = enable;
+}
+
+void EPD_SSD1680::setTempCallback(TempCallback callback) {
+    _temp_callback = callback;
+}
+
+void EPD_SSD1680::checkAndApplyTempLUT() {
+    if (!_auto_temp_lut) return;
+    int16_t temp = readTemperature();
+    _last_temp = temp;
+    if (_temp_callback) {
+        _temp_callback(temp);
+    }
+    setTemperature(temp);
+    // Reload LUT from OTP based on temperature
+    sendCommand(0x22);
+    sendData(0xB1);
+    sendCommand(0x20);
+    waitBusy();
 }
 
 #endif // EINK_SELECTIVE_BUILD / EINK_ENABLE_SSD1680

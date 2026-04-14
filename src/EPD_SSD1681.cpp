@@ -39,7 +39,11 @@ size_t EPD_SSD1681::framebufferSize() const { return _fb_black_size; }
 uint8_t* EPD_SSD1681::framebufferAccent() { return _fb_accent; }
 size_t EPD_SSD1681::framebufferAccentSize() const { return _fb_accent_size; }
 
-void EPD_SSD1681::setRotation(uint8_t r) { _rotation = (uint8_t)(r & 3); }
+void EPD_SSD1681::setRotation(uint8_t r) {
+  // Remap: 0->1, 1->0, 2->3, 3->2
+  static const uint8_t map[4] = {1, 0, 3, 2};
+  _rotation = map[r & 3];
+}
 
 void EPD_SSD1681::mapXY(int16_t x, int16_t y, int16_t& xp, int16_t& yp) const {
   switch (_rotation & 3) {
@@ -197,25 +201,67 @@ void EPD_SSD1681::setPointer(int x, int y) {
 }
 
 void EPD_SSD1681::flushFull() {
-  // Write full frame from _fb (assumed 200x200)
+  // If no rotation, write directly
+  if (_rotation == 0) {
+    setWindow(0, 0, _phys_w - 1, _phys_h - 1);
+    for (uint16_t y = 0; y < _phys_h; ++y) {
+      setPointer(0, y);
+      sendCommand(0x24);
+      const uint8_t* row = _fb_black + ((size_t)y * (size_t)_phys_w >> 3);
+      sendDataBlock(row, (size_t)_phys_w >> 3);
+    }
+    if (_fb_accent && (_cfg.variant == EPDVariant::BW_R || _cfg.variant == EPDVariant::BW_Y || _cfg.variant == EPDVariant::BW_RY)) {
+      for (uint16_t y = 0; y < _phys_h; ++y) {
+        setPointer(0, y);
+        sendCommand(0x26);
+        const uint8_t* row2 = _fb_accent + ((size_t)y * (size_t)_phys_w >> 3);
+        sendDataBlock(row2, (size_t)_phys_w >> 3);
+      }
+    }
+  } else {
+    // With rotation: framebuffer stores pixels at physical coords
+    // Just read directly from framebuffer, rotation is already handled by mapXY in drawPixel
+    setWindow(0, 0, _phys_w - 1, _phys_h - 1);
+    for (uint16_t y = 0; y < _phys_h; ++y) {
+      setPointer(0, y);
+      sendCommand(0x24);
+      const uint8_t* row = _fb_black + ((size_t)y * (size_t)_phys_w >> 3);
+      sendDataBlock(row, (size_t)_phys_w >> 3);
+    }
+    if (_fb_accent && (_cfg.variant == EPDVariant::BW_R || _cfg.variant == EPDVariant::BW_Y || _cfg.variant == EPDVariant::BW_RY)) {
+      for (uint16_t y = 0; y < _phys_h; ++y) {
+        setPointer(0, y);
+        sendCommand(0x26);
+        const uint8_t* row2 = _fb_accent + ((size_t)y * (size_t)_phys_w >> 3);
+        sendDataBlock(row2, (size_t)_phys_w >> 3);
+      }
+    }
+  }
+  issueUpdate(RefreshProfile::Full);
+}
+
+void EPD_SSD1681::syncToRAM() {
+  // Write framebuffer to RAM without triggering display update
   setWindow(0, 0, _phys_w - 1, _phys_h - 1);
   for (uint16_t y = 0; y < _phys_h; ++y) {
     setPointer(0, y);
-    sendCommand(0x24); // WRITE_RAM_BW
+    sendCommand(0x24);
     const uint8_t* row = _fb_black + ((size_t)y * (size_t)_phys_w >> 3);
     sendDataBlock(row, (size_t)_phys_w >> 3);
   }
-  // Accent plane (red/yellow)
   if (_fb_accent && (_cfg.variant == EPDVariant::BW_R || _cfg.variant == EPDVariant::BW_Y || _cfg.variant == EPDVariant::BW_RY)) {
     for (uint16_t y = 0; y < _phys_h; ++y) {
       setPointer(0, y);
-      sendCommand(0x26); // WRITE_RAM_RED
+      sendCommand(0x26);
       const uint8_t* row2 = _fb_accent + ((size_t)y * (size_t)_phys_w >> 3);
       sendDataBlock(row2, (size_t)_phys_w >> 3);
     }
   }
-  // Trigger update with FULL profile (force full refresh)
-  issueUpdate(RefreshProfile::Full);
+  // Partial update - faster refresh with less flicker (0xC7 flag)
+  sendCommand(0x22);
+  sendData(0xCF);  // Partial update mode
+  sendCommand(0x20);
+  waitBusy();
 }
 
 void EPD_SSD1681::flushRect(int16_t x, int16_t y, int16_t w, int16_t h) {
@@ -303,14 +349,6 @@ void EPD_SSD1681::setUpdateControlFlags(uint8_t full_flags, uint8_t partial_flag
   _upd_partial_flags = partial_flags;
 }
 
-void EPD_SSD1681::issueUpdate(RefreshProfile p) {
-  uint8_t update_cmd = (p == RefreshProfile::Full) ? 0xF7 : 0xCF; // 0x04 = partial update
-  sendCommand(0x22);
-  sendData(update_cmd);
-  sendCommand(0x20);
-  waitBusy();
-  delay(p == RefreshProfile::Full ? 100 : 30); // Use timings from GxEPD2
-}
 
 void EPD_SSD1681::setDisplayMode(DisplayMode m) {
   _disp_mode = m;
@@ -361,6 +399,291 @@ void EPD_SSD1681::setLUTForPanel(RefreshProfile profile) {
     for (size_t i = 0; i < 30; ++i) {
         sendData(pgm_read_byte(&lut[i]));
     }
+}
+
+// ========== NEW: Full SSD1681 Command Implementation ==========
+
+// --- Priority 1: Voltage Control ---
+
+// 0x03: Gate Driving Voltage (VGH/VGL)
+// VGH = 10V + level*0.5V, range 10V-20V (level 0-20)
+// VGL = -VGH
+void EPD_SSD1681::setGateVoltage(uint8_t vgh_level) {
+    sendCommand(0x03);
+    sendData(vgh_level & 0x1F);  // 5 bits max
+}
+
+// 0x04: Source Driving Voltage (VSH1, VSH2, VSL)
+// VSH1/VSH2: 2.4V-17V, VSL: -5V to -17V
+void EPD_SSD1681::setSourceVoltage(uint8_t vsh1_level, uint8_t vsh2_level, uint8_t vsl_level) {
+    sendCommand(0x04);
+    sendData(vsh1_level);   // VSH1 setting
+    sendData(vsh2_level);   // VSH2 setting  
+    sendData(vsl_level);    // VSL setting
+}
+
+// 0x2C: Write VCOM DC level
+// DCVCOM = -0.2V + level*0.02V, range -0.2V to -3.0V (level 0-140)
+void EPD_SSD1681::setVCOM(uint8_t vcom_level) {
+    sendCommand(0x2C);
+    sendData(vcom_level);
+}
+
+// 0x35: Read internal temperature sensor
+// Returns temperature in 0.01°C units (e.g., 2500 = 25.00°C)
+int16_t EPD_SSD1681::readTemperature() {
+    uint8_t buf[2];
+    _io.sendCommandReadBlock(0x35, buf, 2);
+    // Combine into 16-bit signed value
+    int16_t temp = (int16_t)((buf[1] << 8) | buf[0]);
+    return temp;
+}
+
+// 0x37: Write temperature for LUT selection
+// Temperature in 0.01°C units
+void EPD_SSD1681::setTemperature(int16_t temp) {
+    sendCommand(0x37);
+    sendData((uint8_t)(temp & 0xFF));
+    sendData((uint8_t)((temp >> 8) & 0xFF));
+}
+
+// --- Priority 2: Advanced Waveform ---
+
+// 0x0C: Booster Soft Start
+// Sets soft start periods for phases A, B, C
+void EPD_SSD1681::setBoosterSoftStart(uint8_t phase_a, uint8_t phase_b, uint8_t phase_c) {
+    sendCommand(0x0C);
+    sendData(phase_a);
+    sendData(phase_b);
+    sendData(phase_c);
+}
+
+// 0x15: Gate Line Width
+// Sets gate driving period
+void EPD_SSD1681::setGateLineWidth(uint8_t width) {
+    sendCommand(0x15);
+    sendData(width);
+}
+
+// 0x18: Regulator Control
+// Controls internal regulator settings
+void EPD_SSD1681::setRegulatorControl(uint8_t ctrl) {
+    sendCommand(0x18);
+    sendData(ctrl);
+}
+
+// 0x27: Read RAM (B/W)
+// Reads back B/W RAM content starting at specified position
+void EPD_SSD1681::readRAM(uint16_t x, uint16_t y, uint8_t* buffer, size_t len) {
+    if (!buffer || len == 0) return;
+    // Set RAM address for read
+    sendCommand(0x4E);  // Set RAM X counter
+    sendData((uint8_t)((x >> 3) & 0xFF));
+    sendCommand(0x4F);  // Set RAM Y counter
+    sendData((uint8_t)(y & 0xFF));
+    sendData((uint8_t)((y >> 8) & 0xFF));
+    // Read RAM
+    sendCommand(0x27);
+    _io.readDataBlock(buffer, len);
+}
+
+// 0x3C: Border Waveform Control
+// setting: 0=VSS (low), 1=VSH1 (high), 2=VCOM
+void EPD_SSD1681::setBorderWaveform(uint8_t setting) {
+    sendCommand(0x3C);
+    sendData(setting & 0x03);
+}
+
+// 0x3F: LUT End Option
+// Sets LUT end behavior
+void EPD_SSD1681::setLUTEndOption(uint8_t option) {
+    sendCommand(0x3F);
+    sendData(option);
+}
+
+// --- Priority 3: Debug/OTP ---
+
+// 0x14: PWM Frequency Control
+void EPD_SSD1681::setPWMFrequency(uint8_t freq) {
+    sendCommand(0x14);
+    sendData(freq);
+}
+
+// 0x1B: Read Chip ID
+uint8_t EPD_SSD1681::readChipID() {
+    return _io.sendCommandRead(0x1B);
+}
+
+// 0x2D: Read VCOM Register
+uint8_t EPD_SSD1681::readVCOM() {
+    return _io.sendCommandRead(0x2D);
+}
+
+// 0x2E: Write OTP (PERMANENT!)
+// WARNING: This permanently programs OTP memory
+void EPD_SSD1681::writeOTP(uint8_t addr, uint8_t data) {
+    sendCommand(0x2E);
+    sendData(addr);
+    sendData(data);
+}
+
+// 0x2F: Read OTP
+uint8_t EPD_SSD1681::readOTP(uint8_t addr) {
+    sendCommand(0x2F);
+    sendData(addr);
+    return _io.readData();
+}
+
+// ========== Additional Commands Found in Datasheet ==========
+
+// 0x29: VCOM Sense Duration
+// Sets VCOM sensing duration: duration = (duration_sec) seconds (1-16 sec)
+void EPD_SSD1681::setVCOMSenseDuration(uint8_t duration_sec) {
+    sendCommand(0x29);
+    // Duration = (A[3:0]+1) sec, so A[3:0] = duration_sec - 1
+    sendData((duration_sec - 1) & 0x0F);
+}
+
+// 0x41: RAM Content Option for Display Update
+void EPD_SSD1681::setRAMContentOption(uint8_t option) {
+    sendCommand(0x41);
+    sendData(option);
+}
+
+// HV Ready Detection (via 0x22)
+// Returns true if HV is ready, false if not ready
+bool EPD_SSD1681::checkHVReady() {
+    // Enable clock and analog first (CLKEN=1, ANALOGEN=1 via 0x22)
+    sendCommand(0x22);
+    sendData(0xC0);  // Enable clock and analog
+    sendCommand(0x20);
+    waitBusy();
+    
+    // Trigger HV Ready detection
+    sendCommand(0x22);
+    sendData(0x00);  // HV Ready detection, A[7:0]=00h for 1-shot
+    sendCommand(0x20);
+    waitBusy();
+    
+    // Read status via 0x2F (Status Bit Read)
+    sendCommand(0x2F);
+    sendData(0x00);  // Address for status
+    uint8_t status = _io.readData();
+    
+    // A[5] = HV Ready flag: 0 = Ready, 1 = Not ready
+    return (status & 0x20) == 0;
+}
+
+// VCOM Sense (via 0x22)
+// Performs VCOM sensing and returns sensed VCOM value
+uint8_t EPD_SSD1681::performVCOMSense() {
+    // Enable clock and analog first
+    sendCommand(0x22);
+    sendData(0xC0);  // CLKEN=1, ANALOGEN=1
+    sendCommand(0x20);
+    waitBusy();
+    
+    // Trigger VCOM Sense
+    sendCommand(0x22);
+    sendData(0x01);  // VCOM Sense mode
+    sendCommand(0x20);
+    waitBusy();
+    
+    // Read VCOM value via 0x2D
+    return _io.sendCommandRead(0x2D);
+}
+
+// External Temperature Sensor Control (via 0x22)
+// Select internal (true) or external I2C sensor (false)
+void EPD_SSD1681::selectTemperatureSensor(bool internal) {
+    sendCommand(0x18);
+    // A[7:0] = 80h for internal, 48h for external (POR default)
+    sendData(internal ? 0x80 : 0x48);
+}
+
+// Write command to external I2C temperature sensor
+void EPD_SSD1681::writeExternalTempSensor(uint8_t cmd) {
+    sendCommand(0x22);
+    sendData(0x48);  // Temperature Sensor Control - Write to external
+    sendCommand(0x20);
+    waitBusy();
+    
+    // Send command to external sensor
+    sendCommand(0x18);
+    sendData(cmd);
+}
+
+// Deep Sleep Mode 1 (lower power consumption)
+void EPD_SSD1681::enterDeepSleepMode1() {
+    sendCommand(0x10);
+    sendData(0x01);  // Deep Sleep Mode 1
+    waitBusy();
+}
+
+// Deep Sleep Mode 2 (even lower power consumption)
+void EPD_SSD1681::enterDeepSleepMode2() {
+    sendCommand(0x10);
+    sendData(0x11);  // Deep Sleep Mode 2
+    waitBusy();
+}
+
+// ========== Temperature-based LUT Auto-Selection ==========
+
+// Temperature ranges for LUT selection (based on SSD1681 datasheet)
+// Range 0: < 0°C, Range 1: 0-10°C, Range 2: 10-25°C
+// Range 3: 25-40°C, Range 4: 40-50°C, Range 5: > 50°C
+static const int16_t TEMP_RANGES[] = {0, 1000, 2500, 4000, 5000};  // in 0.01°C units
+
+int8_t EPD_SSD1681::getTemperatureRange(int16_t temp) {
+    // Returns range index 0-5 based on temperature
+    if (temp < TEMP_RANGES[0]) return 0;       // < 0°C
+    if (temp < TEMP_RANGES[1]) return 1;       // 0-10°C
+    if (temp < TEMP_RANGES[2]) return 2;       // 10-25°C
+    if (temp < TEMP_RANGES[3]) return 3;       // 25-40°C
+    if (temp < TEMP_RANGES[4]) return 4;       // 40-50°C
+    return 5;                                   // > 50°C
+}
+
+void EPD_SSD1681::enableAutoTempLUT(bool enable) {
+    _auto_temp_lut = enable;
+}
+
+void EPD_SSD1681::setTempCallback(TempCallback callback) {
+    _temp_callback = callback;
+}
+
+void EPD_SSD1681::checkAndApplyTempLUT() {
+    if (!_auto_temp_lut) return;
+    
+    // Read current temperature
+    int16_t temp = readTemperature();
+    _last_temp = temp;
+    
+    // Invoke callback if set
+    if (_temp_callback) {
+        _temp_callback(temp);
+    }
+    
+    // Set temperature for LUT selection (command 0x37)
+    setTemperature(temp);
+    
+    // Reload LUT from OTP based on temperature (command 0x22 with 0xB1/0xB9)
+    reloadTempAndLUT(_disp_mode == DisplayMode::Mode2);
+}
+
+// Override issueUpdate to check temperature before update
+void EPD_SSD1681::issueUpdate(RefreshProfile p) {
+    // Check and apply temperature-based LUT if enabled
+    if (_auto_temp_lut) {
+        checkAndApplyTempLUT();
+    }
+    
+    uint8_t update_cmd = (p == RefreshProfile::Full) ? 0xF7 : 0xCF;
+    sendCommand(0x22);
+    sendData(update_cmd);
+    sendCommand(0x20);
+    waitBusy();
+    delay(p == RefreshProfile::Full ? 100 : 30);
 }
 
 #endif // EINK_SELECTIVE_BUILD / EINK_ENABLE_SSD1681

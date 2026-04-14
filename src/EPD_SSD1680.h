@@ -23,6 +23,7 @@ public:
   // Updates
   void flushFull() override;
   void flushRect(int16_t x, int16_t y, int16_t w, int16_t h) override;
+  void syncToRAM();  // Quick update without clearing old frame
 
   // Framebuffers
   uint8_t* framebuffer() override { return _fb_black; }
@@ -38,6 +39,47 @@ public:
   uint16_t width() const override { return (_rotation & 1) ? _phys_h : _phys_w; }
   uint16_t height() const override { return (_rotation & 1) ? _phys_w : _phys_h; }
 
+  // ========== NEW: Full SSD1680 Command Support ==========
+
+  // --- Priority 1: Voltage Control ---
+  void setGateVoltage(uint8_t vgh_level);  // 0x03
+  void setSourceVoltage(uint8_t vsh1, uint8_t vsh2, uint8_t vsl);  // 0x04
+  void setVCOM(uint8_t vcom_level);  // 0x2C
+  int16_t readTemperature();  // 0x35
+  void setTemperature(int16_t temp);  // 0x37
+
+  // --- Priority 2: Advanced Waveform ---
+  void setBoosterSoftStart(uint8_t phase_a, uint8_t phase_b, uint8_t phase_c);  // 0x0C
+  void setGateLineWidth(uint8_t width);  // 0x15
+  void setRegulatorControl(uint8_t ctrl);  // 0x18
+  void readRAM(uint16_t x, uint16_t y, uint8_t* buffer, size_t len);  // 0x27
+  void setBorderWaveform(uint8_t setting);  // 0x3C
+  void setLUTEndOption(uint8_t option);  // 0x3F
+
+  // --- Priority 3: Debug/OTP ---
+  void setPWMFrequency(uint8_t freq);  // 0x14
+  uint8_t readChipID();  // 0x1B
+  uint8_t readVCOM();  // 0x2D
+  void writeOTP(uint8_t addr, uint8_t data);  // 0x2E
+  uint8_t readOTP(uint8_t addr);  // 0x2F
+
+  // --- Additional Commands ---
+  void setVCOMSenseDuration(uint8_t duration_sec);  // 0x29
+  void setRAMContentOption(uint8_t option);  // 0x41
+  bool checkHVReady();
+  uint8_t performVCOMSense();
+  void selectTemperatureSensor(bool internal);
+  void writeExternalTempSensor(uint8_t cmd);
+  void enterDeepSleepMode1();
+  void enterDeepSleepMode2();
+
+  // --- Temperature-based LUT Auto-Selection ---
+  typedef void (*TempCallback)(int16_t temperature);
+  void enableAutoTempLUT(bool enable);
+  void setTempCallback(TempCallback callback);
+  bool isAutoTempLUTEnabled() const { return _auto_temp_lut; }
+  int8_t getTemperatureRange(int16_t temp);
+
 private:
   // Config/state
   EPDConfig _cfg;
@@ -47,6 +89,12 @@ private:
   RefreshProfile _profile = RefreshProfile::Full;
   DisplayMode _disp_mode = DisplayMode::Mode1;
   int8_t _char_spacing = 0; // additional spacing between characters in pixels
+
+  // Auto temperature-LUT support
+  bool _auto_temp_lut = false;
+  TempCallback _temp_callback = nullptr;
+  int16_t _last_temp = 2500;
+  void checkAndApplyTempLUT();
 
   // Buffers
   uint8_t* _fb_black = nullptr;
@@ -86,6 +134,10 @@ private:
   void mapXY(int16_t x, int16_t y, int16_t& xp, int16_t& yp) const;
   void mapRectToPhys(int16_t x, int16_t y, int16_t w, int16_t h,
                      int16_t& xs, int16_t& ys, int16_t& xe, int16_t& ye) const;
+
+  // Helper for read operations
+  uint8_t readData() { return _io.readData(); }
+  void readDataBlock(uint8_t* buf, size_t n) { _io.readDataBlock(buf, n); }
 
   // SSD1680 specifics
   void _InitDisplay();
