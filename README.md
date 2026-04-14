@@ -1,6 +1,234 @@
-# E_INK Library
+## Deutsch (Übersetzung)
+
+# E_INK Library - E-Paper Display Treiber
+
+Einheitlicher Treiber für E-Paper-Displays (EPD) mit Unterstützung für mehrere Controller und SPI-Backends.
+
+Repository: https://github.com/Atmel2005/E_INK
+
+---
+
+## Funktionen
+
+- **Mehrere Controller**: SSD1680, SSD1681, SSD1608, UC8151, IL3829
+- **Farbvarianten**: Schwarz/Weiß, Schwarz/Weiß/Rot, Schwarz/Weiß/Gelb, Schwarz/Weiß/Rot/Gelb
+- **SPI-Modi**: Hardware-SPI, Software-SPI, 3-Draht und 4-Draht
+- **Aktualisierungsmodi**: Vollständige Aktualisierung und Teilaktualisierung
+- **Drehungsunterstützung**: 0°, 90°, 180°, 270°
+- **Multi-Plattform**: RP2040, ESP32, STM32, AVR (Arduino Uno)
+
+---
+
+## Installation
+
+1. Repository herunterladen oder klonen
+2. Den Ordner `E_INK` in das Arduino-Bibliothekenverzeichnis kopieren:
+   - Windows: `Dokumente\Arduino\libraries\`
+   - macOS/Linux: `~/Arduino/libraries/`
+3. Arduino IDE neu starten
+
+---
+
+## Schnellstart
+
+```cpp
+#include <E_INK.h>
+
+EPDConfig cfg;
+EPD_Base* epd = nullptr;
+
+void setup() {
+  cfg.width = 200;
+  cfg.height = 200;
+  cfg.controller = EPDController::SSD1681;
+  cfg.variant = EPDVariant::BW;
+  cfg.cs = 10;
+  cfg.dc = 9;
+  cfg.rst = 8;
+  cfg.busy = 7;
+  cfg.use_hw_spi = true;
+  
+  epd = createEPD(cfg);
+  epd->begin();
+  epd->fillScreen(EPDColor::White);
+  epd->drawPixel(100, 100, EPDColor::Black);
+  epd->flushFull();
+  epd->sleep();
+}
+
+void loop() {}
+```
+
+---
+
+## Unterstützte Controller
+
+| Controller | Auflösung | Farben | Hinweise |
+| ---------- | --------- | ------ | -------- |
+| SSD1680 | 122x250 | BW, BW_R | Gängige 2.13" Displays |
+| SSD1681 | 200x200 | BW, BW_R, BW_Y | 1.54" Displays |
+| SSD1608 | 200x200 | BW | Ältere 1.54" Displays |
+| UC8151 | Variabel | BW | Niederspannungs-Displays |
+| IL3829 | Variabel | BW | GDEH0213B73 Displays |
+
+---
+
+## API-Referenz
+
+| Funktion | Beschreibung |
+| -------- | ------------ |
+| `begin()` | Display initialisieren |
+| `end()` | Display deinitialisieren |
+| `sleep()` | Deep-Sleep-Modus |
+| `drawPixel(x, y, color)` | Einzelnes Pixel zeichnen |
+| `fillScreen(color)` | Bildschirm füllen |
+| `flushFull()` | Vollständige Aktualisierung |
+| `flushRect(x, y, w, h)` | Teilaktualisierung |
+| `setRotation(r)` | Drehung setzen (0-3) |
+| `framebuffer()` | Schwarz/Weiß-Puffer |
+| `framebufferAccent()` | Farb-Puffer (Rot/Gelb) |
+
+---
+
+## Pin-Belegung
+
+| Pin | RP2040 | ESP32 | Arduino Uno |
+| --- | ------ | ----- | ----------- |
+| MOSI | 7 | 23 | 11 |
+| SCLK | 6 | 18 | 13 |
+| CS | 10 | 5 | 10 |
+| DC | 9 | 17 | 9 |
+| RST | 8 | 16 | 8 |
+| BUSY | 11 | 4 | 7 |
+
+---
+
+## Links
+
+- Repository: https://github.com/Atmel2005/E_INK
+
+---
+
+## Українською (переклад)
+
+# E_INK Library - Драйвер e-paper дисплеїв
+
+Універсальний драйвер для e-paper дисплеїв (EPD) з підтримкою багатьох контролерів та SPI-інтерфейсів.
+
+Репозиторій: https://github.com/Atmel2005/E_INK
+
+---
+
+## Можливості
+
+- **Багато контролерів**: SSD1680, SSD1681, SSD1608, UC8151, IL3829
+- **Кольорові варіанти**: Чорно-білий, Чорно-біло-червоний, Чорно-біло-жовтий, Чорно-біло-червоно-жовтий
+- **SPI-режими**: Апаратний SPI, Програмний SPI, 3-провідний та 4-провідний
+- **Режими оновлення**: Повне та часткове оновлення
+- **Підтримка повороту**: 0°, 90°, 180°, 270°
+- **Мультиплатформовість**: RP2040, ESP32, STM32, AVR (Arduino Uno)
+
+---
+
+## Встановлення
+
+1. Завантажити або клонувати репозиторій
+2. Копіювати папку `E_INK` у директорію бібліотек Arduino:
+   - Windows: `Документи\Arduino\libraries\`
+   - macOS/Linux: `~/Arduino/libraries/`
+3. Перезавантажити Arduino IDE
+
+---
+
+## Швидкий старт
+
+```cpp
+#include <E_INK.h>
+
+EPDConfig cfg;
+EPD_Base* epd = nullptr;
+
+void setup() {
+  cfg.width = 200;
+  cfg.height = 200;
+  cfg.controller = EPDController::SSD1681;
+  cfg.variant = EPDVariant::BW;
+  cfg.cs = 10;
+  cfg.dc = 9;
+  cfg.rst = 8;
+  cfg.busy = 7;
+  cfg.use_hw_spi = true;
+  
+  epd = createEPD(cfg);
+  epd->begin();
+  epd->fillScreen(EPDColor::White);
+  epd->drawPixel(100, 100, EPDColor::Black);
+  epd->flushFull();
+  epd->sleep();
+}
+
+void loop() {}
+```
+
+---
+
+## Підтримувані контролери
+
+| Контролер | Роздільна здатність | Кольори | Примітка |
+| ---------- | ------------------- | ------- | -------- |
+| SSD1680 | 122x250 | BW, BW_R | Популярні 2.13" дисплеї |
+| SSD1681 | 200x200 | BW, BW_R, BW_Y | 1.54" дисплеї |
+| SSD1608 | 200x200 | BW | Старі 1.54" дисплеї |
+| UC8151 | Змінна | BW | Низьковольтні дисплеї |
+| IL3829 | Змінна | BW | GDEH0213B73 дисплеї |
+
+---
+
+## API-довідник
+
+| Функція | Опис |
+| ------- | ---- |
+| `begin()` | Ініціалізувати дисплей |
+| `end()` | Деініціалізувати дисплей |
+| `sleep()` | Режим глибокого сну |
+| `drawPixel(x, y, color)` | Малювати піксель |
+| `fillScreen(color)` | Заповнити екран |
+| `flushFull()` | Повне оновлення |
+| `flushRect(x, y, w, h)` | Часткове оновлення |
+| `setRotation(r)` | Встановити поворот (0-3) |
+| `framebuffer()` | Буфер чорно-білого |
+| `framebufferAccent()` | Кольоровий буфер |
+
+---
+
+## Підключення пінів
+
+| Пін | RP2040 | ESP32 | Arduino Uno |
+| --- | ------ | ----- | ----------- |
+| MOSI | 7 | 23 | 11 |
+| SCLK | 6 | 18 | 13 |
+| CS | 10 | 5 | 10 |
+| DC | 9 | 17 | 9 |
+| RST | 8 | 16 | 8 |
+| BUSY | 11 | 4 | 7 |
+
+---
+
+## Посилання
+
+- Репозиторій: https://github.com/Atmel2005/E_INK
+
+---
+
+## English (translation)
+
+# E_INK Library - E-Paper Display Driver
 
 Unified driver for e-paper displays (EPD) with support for multiple controllers and SPI backends.
+
+Repository: https://github.com/Atmel2005/E_INK
+
+---
 
 ## Features
 
@@ -11,6 +239,8 @@ Unified driver for e-paper displays (EPD) with support for multiple controllers 
 - **Rotation support**: 0°, 90°, 180°, 270°
 - **Multi-platform**: RP2040, ESP32, STM32, AVR (Arduino Uno)
 
+---
+
 ## Installation
 
 1. Download or clone this repository
@@ -18,6 +248,8 @@ Unified driver for e-paper displays (EPD) with support for multiple controllers 
    - Windows: `Documents\Arduino\libraries\`
    - macOS/Linux: `~/Arduino/libraries/`
 3. Restart Arduino IDE
+
+---
 
 ## Quick Start
 
@@ -28,164 +260,187 @@ EPDConfig cfg;
 EPD_Base* epd = nullptr;
 
 void setup() {
-  // Configure display
   cfg.width = 200;
   cfg.height = 200;
   cfg.controller = EPDController::SSD1681;
   cfg.variant = EPDVariant::BW;
-  
-  // SPI pins (adjust for your board)
   cfg.cs = 10;
   cfg.dc = 9;
   cfg.rst = 8;
   cfg.busy = 7;
   cfg.use_hw_spi = true;
   
-  // Create and initialize display
   epd = createEPD(cfg);
   epd->begin();
-  
-  // Draw content
   epd->fillScreen(EPDColor::White);
   epd->drawPixel(100, 100, EPDColor::Black);
   epd->flushFull();
-  
-  // Sleep to save power
   epd->sleep();
 }
 
 void loop() {}
 ```
 
+---
+
 ## Supported Controllers
 
 | Controller | Resolution | Colors | Notes |
-|------------|------------|--------|-------|
-| SSD1680 | 122×250 | BW, BW_R | Common 2.13" displays |
-| SSD1681 | 200×200 | BW, BW_R, BW_Y | 1.54" displays |
-| SSD1608 | 200×200 | BW | Older 1.54" displays |
+| ---------- | ---------- | ------ | ----- |
+| SSD1680 | 122x250 | BW, BW_R | Common 2.13" displays |
+| SSD1681 | 200x200 | BW, BW_R, BW_Y | 1.54" displays |
+| SSD1608 | 200x200 | BW | Older 1.54" displays |
 | UC8151 | Various | BW | Low-voltage displays |
 | IL3829 | Various | BW | GDEH0213B73 displays |
 
-## Configuration Options
-
-```cpp
-EPDConfig cfg;
-
-// Display dimensions
-cfg.width = 200;
-cfg.height = 200;
-
-// Controller and variant
-cfg.controller = EPDController::SSD1681;
-cfg.variant = EPDVariant::BW_R;  // BW, BW_R, BW_Y, BW_RY
-
-// SPI pins
-cfg.mosi = 11;  // SW SPI only
-cfg.sclk = 13;  // SW SPI only
-cfg.cs   = 10;
-cfg.dc   = 9;
-cfg.rst  = 8;
-cfg.busy = 7;
-
-// SPI options
-cfg.use_hw_spi = true;   // Use hardware SPI
-cfg.three_wire = false;  // 3-wire SPI mode
-cfg.spi_hz = 4000000;    // SPI clock speed
-
-// Rotation
-cfg.rotation = 0;  // 0, 1, 2, 3 (0°, 90°, 180°, 270°)
-```
+---
 
 ## API Reference
 
-### Core Functions
-
 | Function | Description |
-|----------|-------------|
+| -------- | ----------- |
 | `begin()` | Initialize display |
 | `end()` | Deinitialize display |
 | `sleep()` | Enter deep sleep mode |
-| `isBusy()` | Check if display is busy |
-
-### Drawing Functions
-
-| Function | Description |
-|----------|-------------|
 | `drawPixel(x, y, color)` | Draw a single pixel |
-| `fillScreen(color)` | Fill entire screen with color |
-| `setRotation(r)` | Set rotation (0-3) |
-
-### Display Update
-
-| Function | Description |
-|----------|-------------|
+| `fillScreen(color)` | Fill entire screen |
 | `flushFull()` | Full display refresh |
-| `flushRect(x, y, w, h)` | Partial refresh of rectangle |
+| `flushRect(x, y, w, h)` | Partial refresh |
+| `setRotation(r)` | Set rotation (0-3) |
+| `framebuffer()` | Get black/white buffer |
+| `framebufferAccent()` | Get color buffer (red/yellow) |
 
-### Framebuffer Access
-
-| Function | Description |
-|----------|-------------|
-| `framebuffer()` | Get pointer to black/white buffer |
-| `framebufferSize()` | Get buffer size in bytes |
-| `framebufferAccent()` | Get pointer to color buffer (red/yellow) |
-
-### Display Control
-
-| Function | Description |
-|----------|-------------|
-| `setRefreshProfile(profile)` | Set Full or Partial refresh mode |
-| `setDisplayMode(mode)` | Set Mode1 or Mode2 |
-| `setSterChar(px)` | Set extra character spacing |
-| `width()` / `height()` | Get display dimensions |
-
-## Colors
-
-```cpp
-EPDColor::White   // White pixel
-EPDColor::Black   // Black pixel
-EPDColor::Red     // Red pixel (BW_R variant)
-EPDColor::Yellow  // Yellow pixel (BW_Y variant)
-```
-
-## Examples
-
-- **EPD_SSD1681_Intro** - Basic text display with font rendering
-- **EPD_SSD1680_2R_Demo** - Red/Black/White display demo
-- **Chasy_RBW** - Clock application with partial refresh
+---
 
 ## Pin Connections
 
-### RP2040 (Raspberry Pi Pico)
-| Display Pin | GPIO |
-|-------------|------|
-| MOSI | 7 |
-| SCLK | 6 |
-| CS | 10 |
-| DC | 9 |
-| RST | 8 |
-| BUSY | 11 |
+| Pin | RP2040 | ESP32 | Arduino Uno |
+| --- | ------ | ----- | ----------- |
+| MOSI | 7 | 23 | 11 |
+| SCLK | 6 | 18 | 13 |
+| CS | 10 | 5 | 10 |
+| DC | 9 | 17 | 9 |
+| RST | 8 | 16 | 8 |
+| BUSY | 11 | 4 | 7 |
 
-### ESP32
-| Display Pin | GPIO |
-|-------------|------|
-| MOSI | 23 |
-| SCLK | 18 |
-| CS | 5 |
-| DC | 17 |
-| RST | 16 |
-| BUSY | 4 |
+---
 
-### Arduino Uno
-| Display Pin | GPIO |
-|-------------|------|
-| MOSI | 11 |
-| SCLK | 13 |
-| CS | 10 |
-| DC | 9 |
-| RST | 8 |
-| BUSY | 7 |
+## Links
+
+- Repository: https://github.com/Atmel2005/E_INK
+
+---
+
+## Русский (оригинал)
+
+# E_INK Library - Драйвер e-paper дисплеев
+
+Универсальный драйвер для e-paper дисплеев (EPD) с поддержкой нескольких контроллеров и SPI-интерфейсов.
+
+Репозиторий: https://github.com/Atmel2005/E_INK
+
+---
+
+## Возможности
+
+- **Несколько контроллеров**: SSD1680, SSD1681, SSD1608, UC8151, IL3829
+- **Цветовые варианты**: Черно-белый, Черно-бело-красный, Черно-бело-желтый, Черно-бело-красно-желтый
+- **Режимы SPI**: Аппаратный SPI, Программный SPI, 3-проводной и 4-проводной
+- **Режимы обновления**: Полное и частичное обновление
+- **Поддержка поворота**: 0°, 90°, 180°, 270°
+- **Мультиплатформенность**: RP2040, ESP32, STM32, AVR (Arduino Uno)
+
+---
+
+## Установка
+
+1. Скачать или клонировать репозиторий
+2. Скопировать папку `E_INK` в директорию библиотек Arduino:
+   - Windows: `Документы\Arduino\libraries\`
+   - macOS/Linux: `~/Arduino/libraries/`
+3. Перезапустить Arduino IDE
+
+---
+
+## Быстрый старт
+
+```cpp
+#include <E_INK.h>
+
+EPDConfig cfg;
+EPD_Base* epd = nullptr;
+
+void setup() {
+  cfg.width = 200;
+  cfg.height = 200;
+  cfg.controller = EPDController::SSD1681;
+  cfg.variant = EPDVariant::BW;
+  cfg.cs = 10;
+  cfg.dc = 9;
+  cfg.rst = 8;
+  cfg.busy = 7;
+  cfg.use_hw_spi = true;
+  
+  epd = createEPD(cfg);
+  epd->begin();
+  epd->fillScreen(EPDColor::White);
+  epd->drawPixel(100, 100, EPDColor::Black);
+  epd->flushFull();
+  epd->sleep();
+}
+
+void loop() {}
+```
+
+---
+
+## Поддерживаемые контроллеры
+
+| Контроллер | Разрешение | Цвета | Примечание |
+| ---------- | ----------- | ----- | ---------- |
+| SSD1680 | 122x250 | BW, BW_R | Популярные 2.13" дисплеи |
+| SSD1681 | 200x200 | BW, BW_R, BW_Y | 1.54" дисплеи |
+| SSD1608 | 200x200 | BW | Старые 1.54" дисплеи |
+| UC8151 | Разное | BW | Низковольтные дисплеи |
+| IL3829 | Разное | BW | GDEH0213B73 дисплеи |
+
+---
+
+## API-справочник
+
+| Функция | Описание |
+| ------- | -------- |
+| `begin()` | Инициализировать дисплей |
+| `end()` | Деинициализировать дисплей |
+| `sleep()` | Режим глубокого сна |
+| `drawPixel(x, y, color)` | Рисовать пиксель |
+| `fillScreen(color)` | Заполнить экран |
+| `flushFull()` | Полное обновление |
+| `flushRect(x, y, w, h)` | Частичное обновление |
+| `setRotation(r)` | Установить поворот (0-3) |
+| `framebuffer()` | Буфер черно-белого |
+| `framebufferAccent()` | Цветовой буфер |
+
+---
+
+## Схема подключения
+
+| Контакт | RP2040 | ESP32 | Arduino Uno |
+| ------- | ------ | ----- | ----------- |
+| MOSI | 7 | 23 | 11 |
+| SCLK | 6 | 18 | 13 |
+| CS | 10 | 5 | 10 |
+| DC | 9 | 17 | 9 |
+| RST | 8 | 16 | 8 |
+| BUSY | 11 | 4 | 7 |
+
+---
+
+## Ссылки
+
+- Репозиторий: https://github.com/Atmel2005/E_INK
+
+---
 
 ## License
 
@@ -194,7 +449,3 @@ MIT License
 ## Author
 
 ATMEL (atmel2005)
-
-## Repository
-
-https://github.com/atmel2005/E_INK
