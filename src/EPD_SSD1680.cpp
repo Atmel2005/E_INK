@@ -59,7 +59,9 @@ bool EPD_SSD1680::isBusy() const {
 }
 
 void EPD_SSD1680::setRotation(uint8_t r) {
-  _rotation = r & 3;
+  // Remap: 0->1, 1->0, 2->3, 3->2 (same as SSD1681)
+  static const uint8_t map[4] = {1, 0, 3, 2};
+  _rotation = map[r & 3];
   // Не меняем _phys_w/_phys_h: геометрия контроллера фиксирована (WIDTH=122 видимая, CTRL_W=128, HEIGHT=250).
   // Поворот учитывается только в mapXY()/mapRectToPhys().
 }
@@ -143,6 +145,79 @@ void EPD_SSD1680::syncToRAM() {
   sendData(0xCF);  // Partial update mode
   sendCommand(0x20);
   waitBusy();
+}
+
+void EPD_SSD1680::setPartialWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+  // Align to byte boundaries
+  x = (x / 8) * 8;
+  w = ((w + 7) / 8) * 8;
+  if (x + w > _phys_w) w = _phys_w - x;
+  if (y + h > _phys_h) h = _phys_h - y;
+  
+  uint16_t x_end = x + w - 1;
+  uint16_t y_end = y + h - 1;
+  
+  sendCommand(0x44); // SET_RAM_X_ADDRESS_START_END
+  sendData(x / 8);
+  sendData(x_end / 8);
+  
+  sendCommand(0x45); // SET_RAM_Y_ADDRESS_START_END
+  sendData(y & 0xFF);
+  sendData((y >> 8) & 0xFF);
+  sendData(y_end & 0xFF);
+  sendData((y_end >> 8) & 0xFF);
+  
+  sendCommand(0x4E); // SET_RAM_X_ADDRESS_COUNTER
+  sendData(x / 8);
+  
+  sendCommand(0x4F); // SET_RAM_Y_ADDRESS_COUNTER
+  sendData(y & 0xFF);
+  sendData((y >> 8) & 0xFF);
+}
+
+void EPD_SSD1680::refreshPartial(bool isPartialMode) {
+  if (isPartialMode) {
+    sendCommand(0x22);  // DISPLAY_UPDATE_CONTROL_2
+    sendData(0xC0);     // Partial update mode
+  } else {
+    sendCommand(0x22);
+    sendData(0xF7);     // Full refresh
+  }
+  sendCommand(0x20);      // MASTER_ACTIVATION
+  waitBusy();
+}
+
+void EPD_SSD1680::syncRectToRAM(int16_t x, int16_t y, int16_t w, int16_t h) {
+  if (!_fb_black || w <= 0 || h <= 0) return;
+  
+  // Map logical rect to physical space
+  int16_t xs, ys, xe, ye;
+  mapRectToPhys(x, y, w, h, xs, ys, xe, ye);
+  
+  // Align to byte boundaries
+  int xs_al = xs & ~7;
+  int xe_al = xe | 7;
+  if (xe_al >= (int)_phys_w) xe_al = _phys_w - 1;
+  
+  uint16_t win_x = xs_al;
+  uint16_t win_y = ys;
+  uint16_t win_w = xe_al - xs_al + 1;
+  uint16_t win_h = ye - ys + 1;
+  
+  // Set partial window
+  setPartialWindow(win_x, win_y, win_w, win_h);
+  
+  // Write only the window data to RAM
+  const size_t bytes_per_row = (size_t)((_phys_w + 7) >> 3);
+  for (int yy = ys; yy <= ye; ++yy) {
+    const uint8_t* row = _fb_black + ((size_t)yy * bytes_per_row) + (xs_al >> 3);
+    size_t nbytes = (size_t)((xe_al - xs_al + 1) >> 3);
+    sendCommand(0x24); // WRITE_RAM_BW
+    sendDataBlock(row, nbytes);
+  }
+  
+  // Partial refresh
+  refreshPartial(true);
 }
 
 void EPD_SSD1680::flushRect(int16_t x, int16_t y, int16_t w, int16_t h) {

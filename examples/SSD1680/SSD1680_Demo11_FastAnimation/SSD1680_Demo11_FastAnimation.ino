@@ -7,6 +7,7 @@
 
 #include <SPI.h>
 #include <EPD_Base.h>
+#include <EPD_SSD1680.h>
 
 #define EPD_CONTROLLER EPDController::SSD1680
 
@@ -126,6 +127,26 @@ void setup() {
   epd->flushFull();
 }
 
+// Compute bounding box covering old and new shape positions
+void computeBoundingBox(int& minX, int& minY, int& maxX, int& maxY) {
+  minX = 176; minY = 296; maxX = 0; maxY = 0;
+  for (int i = 0; i < 5; i++) {
+    int r = shapes[i].size + 2; // padding
+    // Old position
+    int ox = prevShapes[i].x, oy = prevShapes[i].y;
+    // New position
+    int nx = shapes[i].x, ny = shapes[i].y;
+    // Expand bbox
+    minX = min(minX, min(ox - r, nx - r));
+    minY = min(minY, min(oy - r, ny - r));
+    maxX = max(maxX, max(ox + r, nx + r));
+    maxY = max(maxY, max(oy + r, ny + r));
+  }
+  // Clamp to screen (176x296)
+  minX = max(0, minX); minY = max(0, minY);
+  maxX = min(175, maxX); maxY = min(295, maxY);
+}
+
 void loop() {
   unsigned long now = millis();
   
@@ -136,6 +157,7 @@ void loop() {
     lastFullRefresh = now;
     initShapes();
     lastFrameUpdate = now;
+    return;
   }
   
   // Only update display every FRAME_INTERVAL
@@ -155,13 +177,19 @@ void loop() {
       drawShape(shapes[i], EPDColor::Black);
     }
     
+    // Compute bounding box of all changes
+    int minX, minY, maxX, maxY;
+    computeBoundingBox(minX, minY, maxX, maxY);
+    int w = maxX - minX + 1;
+    int h = maxY - minY + 1;
+    
+    // Update only the changed region using working flushRect
+    epd->flushRect(minX, minY, w, h);
+    
     // Save current positions as previous
     for (int i = 0; i < 5; i++) {
       prevShapes[i] = shapes[i];
     }
-    
-    // Sync framebuffer to RAM
-    epd->syncToRAM();
     
     lastFrameUpdate = now;
   }
